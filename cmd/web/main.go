@@ -11,10 +11,21 @@ import (
 	// models "github.com/lCanSay/avatarApi/pkg/models"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 	handler "github.com/lCanSay/avatarApi/api"
+	_ "github.com/lib/pq"
 )
 
 func main() {
+	err := godotenv.Load("C:/KBTU/projectGo/avatarApi/.env")
+	if err != nil {
+		log.Fatal("No .env file")
+	}
+
+	db := InitDB()
+	defer db.Close()
+
+	// later will move this part
 	router := mux.NewRouter()
 
 	router.HandleFunc("/health-check", handler.HealthCheck).Methods("GET")
@@ -35,12 +46,15 @@ func InitDB() *sql.DB {
 		panic(err)
 	}
 
+	log.Printf("Connect successful 1\n")
+
 	err = db.Ping()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer db.Close()
+	log.Printf("Connect successful 2\n")
+	//defer db.Close()
 
 	return db
 }
