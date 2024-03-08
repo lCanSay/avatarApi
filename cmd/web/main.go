@@ -33,9 +33,11 @@ func main() {
 		})
 	})
 
-	router.HandleFunc("/health-check", handler.HealthCheck).Methods("GET")
 	router.HandleFunc("/characters", handler.GetCharacters).Methods("GET")
+	router.HandleFunc("/characters/{id}", handler.GetCharacterById).Methods("GET")
+	router.HandleFunc("/characters/{id}", handler.DeleteCharacter).Methods("DELETE")
 	router.HandleFunc("/characters", handler.PostCharacter).Methods("POST")
+	router.HandleFunc("/characters/{id}", handler.UpdateCharacter).Methods("PUT")
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
