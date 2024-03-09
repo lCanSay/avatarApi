@@ -1,7 +1,7 @@
 ﻿# Golang-Application-Project
 The project is based on Avatar: Aang cartoon-serial.
 
-Khan Kensey 22B030608 \n
+Khan Kensey 22B030608 
 Kenzhegul Rashid 22B030148
 
 /users method POST
