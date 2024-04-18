@@ -9,10 +9,21 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
-	handler "github.com/lCanSay/avatarApi/api"
+
+	//handler "github.com/lCanSay/avatarApi/api"
 	database "github.com/lCanSay/avatarApi/pkg/database"
 	_ "github.com/lib/pq"
 )
+
+type config struct {
+	port int
+	env  string
+}
+
+type application struct {
+	config config
+	logger *log.Logger
+}
 
 func main() {
 	err := godotenv.Load("C:/KBTU/projectGo/avatarApi/.env")
@@ -33,11 +44,11 @@ func main() {
 		})
 	})
 
-	router.HandleFunc("/characters", handler.GetCharacters).Methods("GET")
-	router.HandleFunc("/characters/{id}", handler.GetCharacterById).Methods("GET")
-	router.HandleFunc("/characters/{id}", handler.DeleteCharacter).Methods("DELETE")
-	router.HandleFunc("/characters", handler.PostCharacter).Methods("POST")
-	router.HandleFunc("/characters/{id}", handler.UpdateCharacter).Methods("PUT")
+	router.HandleFunc("/characters", ListCharacters).Methods("GET")
+	router.HandleFunc("/characters/{id}", GetCharacterById).Methods("GET")
+	router.HandleFunc("/characters/{id}", DeleteCharacter).Methods("DELETE")
+	router.HandleFunc("/characters", PostCharacter).Methods("POST")
+	router.HandleFunc("/characters/{id}", UpdateCharacter).Methods("PUT")
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

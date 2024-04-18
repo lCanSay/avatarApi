@@ -1,4 +1,4 @@
-package handler
+package main
 
 import (
 	"database/sql"
@@ -42,6 +42,8 @@ func PostCharacter(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCharacters(w http.ResponseWriter, r *http.Request) {
+	log.Println("GET /characters")
+
 	db := r.Context().Value("db").(*sql.DB)
 	characters, err := models.GetAllCharacters(db)
 	if err != nil {
@@ -55,6 +57,7 @@ func GetCharacters(w http.ResponseWriter, r *http.Request) {
 
 // GetCharacterById retrieves a character by its ID and sends it as a JSON response.
 func GetCharacterById(w http.ResponseWriter, r *http.Request) {
+	log.Println("GET /characters/{id}")
 	vars := mux.Vars(r)
 	id, err := strconv.Atoi(vars["id"])
 	if err != nil {
