@@ -18,10 +18,11 @@ var (
 type Models struct {
 	// Menus       MenuModel
 	// Restaurants RestaurantModel
-	Users       UserModel
-	Characters  CharacterModel
-	Tokens      TokenModel
-	Permissions PermissionModel
+	Users        UserModel
+	Characters   CharacterModel
+	Affiliations AffiliationModel
+	Tokens       TokenModel
+	Permissions  PermissionModel
 }
 
 func NewModels(db *sql.DB) Models {
@@ -29,6 +30,11 @@ func NewModels(db *sql.DB) Models {
 	errorLog := log.New(os.Stderr, "ERROR\t", log.Ldate|log.Ltime|log.Lshortfile)
 	return Models{
 		Characters: CharacterModel{
+			DB:       db,
+			InfoLog:  infoLog,
+			ErrorLog: errorLog,
+		},
+		Affiliations: AffiliationModel{
 			DB:       db,
 			InfoLog:  infoLog,
 			ErrorLog: errorLog,

@@ -33,11 +33,16 @@ func (app *application) routes() http.Handler {
 	r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:write", app.UpdateCharacterHandler)).Methods("PUT")
 
 	r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:write", app.DeleteCharacterHandler)).Methods("DELETE")
-	//menu1.HandleFunc("/menus/{id:[0-9]+}", app.requirePermissions("menus:write", app.deleteMenuHandler)).Methods("DELETE")
-
 	//r.HandleFunc("/characters/{id:[0-9]+}", app.DeleteCharacterHandler).Methods("DELETE")
-	r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:write", app.DeleteCharacterHandler)).Methods("DELETE")
 
+	// Affiliation routes
+	r.HandleFunc("/affiliations", app.GetAffiliationsListHandler).Methods("GET")
+	r.HandleFunc("/affiliations/{id:[0-9]+}", app.GetAffiliationByIdHandler).Methods("GET")
+	r.HandleFunc("/affiliations", app.CreateAffiliationHandler).Methods("POST")
+	r.HandleFunc("/affiliations/{id:[0-9]+}", app.UpdateAffiliationHandler).Methods("PUT")
+	r.HandleFunc("/affiliations/{id:[0-9]+}", app.DeleteAffiliationHandler).Methods("DELETE")
+
+	// User routes
 	users1 := r.PathPrefix("").Subrouter()
 	users1.HandleFunc("/users", app.registerUserHandler).Methods("POST")
 	users1.HandleFunc("/users/activated", app.activateUserHandler).Methods("PUT")

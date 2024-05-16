@@ -1,15 +1,10 @@
 package main
 
 import (
-	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
-	"strconv"
 
-	"github.com/gorilla/mux"
 	"github.com/lCanSay/avatarApi/internal/validator"
 	models "github.com/lCanSay/avatarApi/pkg/models"
 )
@@ -231,108 +226,167 @@ func (app *application) UpdateCharacterHandler(w http.ResponseWriter, r *http.Re
 
 // Affiliation Handlers-----------------------------------------------------------
 
-func PostAffiliation(w http.ResponseWriter, r *http.Request) {
-	// Parse the request body
-	var affiliation models.Affiliation
-	err := json.NewDecoder(r.Body).Decode(&affiliation)
+func (app *application) CreateAffiliationHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Name        string `json:"name"`
+		Image       string `json:"image"`
+		Description string `json:"description"`
+	}
+
+	err := app.readJSON(w, r, &input)
 	if err != nil {
-		log.Printf("Error decoding request body: %v", err)
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
+		app.errorResponse(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	db := r.Context().Value("db").(*sql.DB)
-	// Insert the affiliation into the database
-	err = models.InsertAffiliation(db, affiliation)
+	affiliation := &models.Affiliation{
+		Name:        input.Name,
+		Image:       input.Image,
+		Description: input.Description,
+	}
+
+	err = app.models.Affiliations.Insert(affiliation)
 	if err != nil {
-		http.Error(w, "Failed to insert affiliation into database", http.StatusInternalServerError)
+		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	// Respond with a success message
-	w.Header().Set("Content-type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	fmt.Fprintf(w, "Affiliation created successfully")
+	app.writeJSON(w, http.StatusCreated, envelope{"affiliation": affiliation}, nil)
 }
 
-func GetAffiliations(w http.ResponseWriter, r *http.Request) {
-	log.Println("GET /affiliations")
+func (app *application) GetAffiliationsListHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Name string
+		models.Filters
+	}
+	v := validator.New()
+	qs := r.URL.Query()
 
-	db := r.Context().Value("db").(*sql.DB)
-	affiliations, err := models.GetAllAffiliations(db)
-	if err != nil {
-		http.Error(w, "Failed to get affiliations from database", http.StatusInternalServerError)
+	// Extract query parameters for name, page, page size, and sort.
+	input.Name = app.readStrings(qs, "name", "")
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+	input.Filters.Sort = app.readStrings(qs, "sort", "id")
+
+	// Define the sort safe list for affiliations.
+	input.Filters.SortSafeList = []string{
+		// Ascending sort values
+		"id", "name",
+		// Descending sort values
+		"-id", "-name",
+	}
+
+	// Validate the input filters.
+	if models.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(affiliations)
+	// Retrieve affiliations from the database using the provided filters.
+	affiliations, metadata, err := app.models.Affiliations.GetAll(input.Name, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	// Send the response with affiliations and metadata.
+	app.writeJSON(w, http.StatusOK, envelope{"affiliations": affiliations, "metadata": metadata}, nil)
 }
 
-func GetAffiliationById(w http.ResponseWriter, r *http.Request) {
-	log.Println("GET /affiliations/{id}")
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+func (app *application) GetAffiliationByIdHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
 	if err != nil {
-		http.Error(w, "Invalid affiliation ID", http.StatusBadRequest)
+		app.notFoundResponse(w, r)
 		return
 	}
 
-	db := r.Context().Value("db").(*sql.DB)
-	affiliation, err := models.GetAffiliationByID(db, id)
+	affiliation, err := app.models.Affiliations.GetByID(id)
 	if err != nil {
-		http.Error(w, "Failed to get affiliation from database", http.StatusInternalServerError)
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(affiliation)
+	app.writeJSON(w, http.StatusOK, envelope{"affiliation": affiliation}, nil)
 }
 
-func DeleteAffiliation(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+func (app *application) DeleteAffiliationHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
 	if err != nil {
-		http.Error(w, "Invalid affiliation ID", http.StatusBadRequest)
+		app.notFoundResponse(w, r)
 		return
 	}
 
-	db := r.Context().Value("db").(*sql.DB)
-	err = models.DeleteAffiliation(db, id)
+	err = app.models.Affiliations.Delete(id)
 	if err != nil {
-		http.Error(w, "Failed to delete affiliation from database", http.StatusInternalServerError)
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Affiliation deleted successfully")
+	app.writeJSON(w, http.StatusOK, envelope{"message": "affiliation deleted successfully"}, nil)
 }
 
-func UpdateAffiliation(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, err := strconv.Atoi(vars["id"])
+func (app *application) UpdateAffiliationHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
 	if err != nil {
-		http.Error(w, "Invalid affiliation ID", http.StatusBadRequest)
+		app.notFoundResponse(w, r)
 		return
 	}
 
-	var updatedAffiliation models.Affiliation
-	err = json.NewDecoder(r.Body).Decode(&updatedAffiliation)
+	affiliation, err := app.models.Affiliations.GetByID(id)
 	if err != nil {
-		http.Error(w, "Failed to parse request body", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	updatedAffiliation.Id = id
-
-	db := r.Context().Value("db").(*sql.DB)
-	err = models.UpdateAffiliation(db, updatedAffiliation)
-	if err != nil {
-		http.Error(w, "Failed to update affiliation in database", http.StatusInternalServerError)
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Affiliation updated successfully")
+	var input struct {
+		Name        *string `json:"name"`
+		Image       *string `json:"image"`
+		Description *string `json:"description"`
+	}
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if input.Name != nil {
+		affiliation.Name = *input.Name
+	}
+
+	if input.Image != nil {
+		affiliation.Image = *input.Image
+	}
+
+	if input.Description != nil {
+		affiliation.Description = *input.Description
+	}
+
+	err = app.models.Affiliations.Update(affiliation)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"affiliation": affiliation}, nil)
 }

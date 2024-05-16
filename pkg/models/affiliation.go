@@ -1,8 +1,11 @@
 package models
 
 import (
+	"context"
 	"database/sql"
+	"fmt"
 	"log"
+	"time"
 )
 
 type Affiliation struct {
@@ -12,67 +15,59 @@ type Affiliation struct {
 	Description string `json:"description"`
 }
 
-// just for testing
-var Affiliations = []Affiliation{
-	{Name: "Air Nomads", Description: "The Air Nomads are a peaceful, nomadic society known for their spiritual connection to the elements and their mastery of airbending.", Image: "https://example.com/air_nomads.jpg"},
-	{Name: "Water Tribe", Description: "The Water Tribe is a group of people living in the polar regions, known for their strong sense of community and their waterbending abilities.", Image: "https://example.com/water_tribe.jpg"},
-	{Name: "Earth Kingdom", Description: "The Earth Kingdom is a large, diverse nation known for its powerful earthbending citizens and its vast, rugged landscapes.", Image: "https://example.com/earth_kingdom.jpg"},
-	{Name: "Fire Nation", Description: "The Fire Nation is a militaristic nation known for its advanced technology and its firebending warriors.", Image: "https://example.com/fire_nation.jpg"},
+type AffiliationModel struct {
+	DB       *sql.DB
+	InfoLog  *log.Logger
+	ErrorLog *log.Logger
 }
 
-func InsertAffiliation(db *sql.DB, affiliation Affiliation) error {
-	query := `INSERT INTO affiliation (id, name, description, image)
-        VALUES ($1, $2, $3, $4)`
+func (m AffiliationModel) Insert(affiliation *Affiliation) error {
+	query := `
+		INSERT INTO affiliation (name, description, image) 
+		VALUES ($1, $2, $3) 
+		RETURNING id
+	`
+	args := []interface{}{affiliation.Name, affiliation.Description, affiliation.Image}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
 
-	_, err := db.Exec(query, affiliation.Id, affiliation.Name, affiliation.Description, affiliation.Image)
-	if err != nil {
-		log.Fatal("query error")
-		return err
-	}
-
-	return nil
+	return m.DB.QueryRowContext(ctx, query, args...).Scan(&affiliation.Id)
 }
 
-func GetAllAffiliations(db *sql.DB) ([]Affiliation, error) {
-	query := "SELECT * FROM affiliation"
-	rows, err := db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var affiliations []Affiliation
-	for rows.Next() {
-		var affiliation Affiliation
-		err := rows.Scan(&affiliation.Id, &affiliation.Name, &affiliation.Description, &affiliation.Image)
-		if err != nil {
-			return nil, err
-		}
-		affiliations = append(affiliations, affiliation)
-	}
-
-	return affiliations, nil
-}
-
-func GetAffiliationByID(db *sql.DB, id int) (*Affiliation, error) {
+func (m AffiliationModel) GetByID(id int) (*Affiliation, error) {
 	query := "SELECT * FROM affiliation WHERE id = $1"
-	row := db.QueryRow(query, id)
 
 	var affiliation Affiliation
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	row := m.DB.QueryRowContext(ctx, query, id)
 	err := row.Scan(&affiliation.Id, &affiliation.Name, &affiliation.Description, &affiliation.Image)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("cannot retrieve affiliation with id: %v, %w", id, err)
 	}
 
 	return &affiliation, nil
 }
 
-func DeleteAffiliation(db *sql.DB, id int) error {
+func (m AffiliationModel) Delete(id int) error {
+	query := "DELETE FROM affiliation WHERE id = $1"
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	_, err := m.DB.ExecContext(ctx, query, id)
+	return err
+}
+
+func (m AffiliationModel) Update(affiliation *Affiliation) error {
 	query := `
-        DELETE FROM affiliation
-        WHERE id = $1
-    `
-	_, err := db.Exec(query, id)
+		UPDATE affiliation
+		SET name = $1, description = $2, image = $3
+		WHERE id = $4
+	`
+	args := []interface{}{affiliation.Name, affiliation.Description, affiliation.Image, affiliation.Id}
+	_, err := m.DB.ExecContext(context.Background(), query, args...)
 	if err != nil {
 		return err
 	}
@@ -80,16 +75,49 @@ func DeleteAffiliation(db *sql.DB, id int) error {
 	return nil
 }
 
-func UpdateAffiliation(db *sql.DB, affiliation Affiliation) error {
-	query := `
-        UPDATE affiliation
-        SET name = $2, description = $3, image = $4
-        WHERE id = $1
-    `
-	_, err := db.Exec(query, affiliation.Id, affiliation.Name, affiliation.Description, affiliation.Image)
+func (m AffiliationModel) GetAll(name string, filters Filters) ([]*Affiliation, Metadata, error) {
+	query := fmt.Sprintf(
+		`
+		SELECT count(*) OVER(), id, name, description, image
+		FROM affiliation
+		WHERE (LOWER(name) = LOWER($1) OR $1 = '')
+		ORDER BY %s %s, id ASC
+		LIMIT $2 OFFSET $3
+		`,
+		filters.sortColumn(), filters.sortDirection())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	args := []interface{}{name, filters.limit(), filters.offset()}
+
+	rows, err := m.DB.QueryContext(ctx, query, args...)
 	if err != nil {
-		return err
+		return nil, Metadata{}, err
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			m.ErrorLog.Println(err)
+		}
+	}()
+
+	totalRecords := 0
+
+	var affiliations []*Affiliation
+	for rows.Next() {
+		var affiliation Affiliation
+		err := rows.Scan(&totalRecords, &affiliation.Id, &affiliation.Name, &affiliation.Description, &affiliation.Image)
+		if err != nil {
+			return nil, Metadata{}, err
+		}
+		affiliations = append(affiliations, &affiliation)
 	}
 
-	return nil
+	if err = rows.Err(); err != nil {
+		return nil, Metadata{}, err
+	}
+
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+
+	return affiliations, metadata, nil
 }
