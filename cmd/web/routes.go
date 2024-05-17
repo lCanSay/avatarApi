@@ -42,6 +42,13 @@ func (app *application) routes() http.Handler {
 	r.HandleFunc("/affiliations/{id:[0-9]+}", app.UpdateAffiliationHandler).Methods("PUT")
 	r.HandleFunc("/affiliations/{id:[0-9]+}", app.DeleteAffiliationHandler).Methods("DELETE")
 
+	// Ability routes
+	r.HandleFunc("/abilities", app.GetAbilitiesListHandler).Methods("GET")
+	r.HandleFunc("/abilities/{id:[0-9]+}", app.GetAbilityByIdHandler).Methods("GET")
+	r.HandleFunc("/abilities", app.CreateAbilityHandler).Methods("POST")
+	r.HandleFunc("/abilities/{id:[0-9]+}", app.UpdateAbilityHandler).Methods("PUT")
+	r.HandleFunc("/abilities/{id:[0-9]+}", app.DeleteAbilityHandler).Methods("DELETE")
+
 	// User routes
 	users1 := r.PathPrefix("").Subrouter()
 	users1.HandleFunc("/users", app.registerUserHandler).Methods("POST")

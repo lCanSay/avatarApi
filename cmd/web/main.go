@@ -6,8 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-
-	//"log"
 	"net/http"
 	"os"
 	"sync"
@@ -16,14 +14,9 @@ import (
 	models "github.com/lCanSay/avatarApi/pkg/models"
 	"github.com/peterbourgon/ff/v3"
 
-	//"github.com/gorilla/mux"
-	//"github.com/joho/godotenv"
-
-	//handler "github.com/lCanSay/avatarApi/api"
-	//database "github.com/lCanSay/avatarApi/pkg/database"
 	"github.com/lCanSay/avatarApi/pkg/jsonlog"
 
-	//"github.com/lCanSay/avatarApi/pkg/models"
+	"github.com/lCanSay/avatarApi/pkg/models/filler"
 	_ "github.com/lib/pq"
 )
 
@@ -110,11 +103,11 @@ func main() {
 	}
 
 	if cfg.fill {
-		// err = filler.PopulateDatabase(app.models)
-		// if err != nil {
-		// 	logger.PrintFatal(err, nil)
-		// 	return
-		// }
+		err = filler.PopulateDatabase(app.models)
+		if err != nil {
+			logger.PrintFatal(err, nil)
+			return
+		}
 	}
 
 	// Call app.server() to start the server.

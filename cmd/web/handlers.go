@@ -19,7 +19,7 @@ func (app *application) CreateCharacterHandler(w http.ResponseWriter, r *http.Re
 		Name           string `json:"name"`
 		Age            int    `json:"age"`
 		Gender         string `json:"gender"`
-		Abilities      string `json:"abilities"`
+		Abilities      int    `json:"abilities"`
 		Image          string `json:"image"`
 		Affiliation_id int    `json:"affiliation_id"`
 	}
@@ -30,16 +30,29 @@ func (app *application) CreateCharacterHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	v := validator.New()
+	ability, err := app.models.Abilities.GetByID(input.Abilities) // Retrieve ability by ID
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 	character := &models.Character{
 		Name:           input.Name,
 		Age:            input.Age,
 		Gender:         input.Gender,
-		Abilities:      input.Abilities,
+		Abilities:      ability.Name,
 		Image:          input.Image,
 		Affiliation_id: input.Affiliation_id,
 	}
 
-	err = app.models.Characters.Insert(character)
+	models.ValidateCharacter(v, character)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Characters.Insert(character, input.Abilities)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -175,7 +188,7 @@ func (app *application) UpdateCharacterHandler(w http.ResponseWriter, r *http.Re
 		Name          *string `json:"name"`
 		Age           *int    `json:"age"`
 		Gender        *string `json:"gender"`
-		Abilities     *string `json:"abilities"`
+		Abilities     *int    `json:"abilities"`
 		Image         *string `json:"image"`
 		AffiliationID *int    `json:"affiliation_id"`
 	}
@@ -199,7 +212,13 @@ func (app *application) UpdateCharacterHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if input.Abilities != nil {
-		character.Abilities = *input.Abilities
+		// Retrieve the ability name by its ID
+		ability, err := app.models.Abilities.GetByID(*input.Abilities)
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+		character.Abilities = ability.Name
 	}
 
 	if input.Image != nil {
@@ -210,7 +229,7 @@ func (app *application) UpdateCharacterHandler(w http.ResponseWriter, r *http.Re
 		character.Affiliation_id = *input.AffiliationID
 	}
 
-	err = app.models.Characters.Update(character)
+	err = app.models.Characters.Update(character, *input.Abilities)
 	if err != nil {
 		switch {
 		case errors.Is(err, models.ErrRecordNotFound):
@@ -239,10 +258,18 @@ func (app *application) CreateAffiliationHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	v := validator.New()
+
 	affiliation := &models.Affiliation{
 		Name:        input.Name,
 		Image:       input.Image,
 		Description: input.Description,
+	}
+
+	models.ValidateAffiliation(v, affiliation)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
 	}
 
 	err = app.models.Affiliations.Insert(affiliation)
@@ -389,4 +416,185 @@ func (app *application) UpdateAffiliationHandler(w http.ResponseWriter, r *http.
 	}
 
 	app.writeJSON(w, http.StatusOK, envelope{"affiliation": affiliation}, nil)
+}
+
+// ability handlers
+
+func (app *application) CreateAbilityHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Name        string `json:"name"`
+		Element     string `json:"element"`
+		Description string `json:"description"`
+		Image       string `json:"image"`
+	}
+
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.errorResponse(w, r, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	v := validator.New()
+
+	ability := &models.Ability{
+		Name:        input.Name,
+		Element:     input.Element,
+		Description: input.Description,
+		Image:       input.Image,
+	}
+
+	models.ValidateAbility(v, ability)
+	if !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	err = app.models.Abilities.Insert(ability)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusCreated, envelope{"ability": ability}, nil)
+}
+
+// GetAbilitiesListHandler handles listing abilities with optional filters.
+func (app *application) GetAbilitiesListHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Name    string
+		Element string
+		models.Filters
+	}
+	v := validator.New()
+	qs := r.URL.Query()
+
+	input.Name = app.readStrings(qs, "name", "")
+	input.Element = app.readStrings(qs, "element", "")
+	input.Filters.Page = app.readInt(qs, "page", 1, v)
+	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
+	input.Filters.Sort = app.readStrings(qs, "sort", "id")
+
+	input.Filters.SortSafeList = []string{
+		"id", "name", "element",
+		"-id", "-name", "-element",
+	}
+
+	if models.ValidateFilters(v, input.Filters); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+
+	abilities, metadata, err := app.models.Abilities.GetAll(input.Name, input.Element, input.Filters)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"abilities": abilities, "metadata": metadata}, nil)
+}
+
+// GetAbilityByIdHandler handles retrieving an ability by its ID.
+func (app *application) GetAbilityByIdHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	ability, err := app.models.Abilities.GetByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"ability": ability}, nil)
+}
+
+// DeleteAbilityHandler handles the deletion of an ability by its ID.
+func (app *application) DeleteAbilityHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	err = app.models.Abilities.Delete(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"message": "success"}, nil)
+}
+
+// UpdateAbilityHandler handles updating an ability by its ID.
+func (app *application) UpdateAbilityHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	ability, err := app.models.Abilities.GetByID(id)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	var input struct {
+		Name        *string `json:"name"`
+		Element     *string `json:"element"`
+		Description *string `json:"description"`
+		Image       *string `json:"image"`
+	}
+
+	err = app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+
+	if input.Name != nil {
+		ability.Name = *input.Name
+	}
+
+	if input.Element != nil {
+		ability.Element = *input.Element
+	}
+
+	if input.Description != nil {
+		ability.Description = *input.Description
+	}
+
+	if input.Image != nil {
+		ability.Image = *input.Image
+	}
+
+	err = app.models.Abilities.Update(ability)
+	if err != nil {
+		switch {
+		case errors.Is(err, models.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"ability": ability}, nil)
 }

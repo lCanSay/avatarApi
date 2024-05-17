@@ -16,11 +16,10 @@ var (
 )
 
 type Models struct {
-	// Menus       MenuModel
-	// Restaurants RestaurantModel
 	Users        UserModel
 	Characters   CharacterModel
 	Affiliations AffiliationModel
+	Abilities    AbilityModel
 	Tokens       TokenModel
 	Permissions  PermissionModel
 }
@@ -35,6 +34,11 @@ func NewModels(db *sql.DB) Models {
 			ErrorLog: errorLog,
 		},
 		Affiliations: AffiliationModel{
+			DB:       db,
+			InfoLog:  infoLog,
+			ErrorLog: errorLog,
+		},
+		Abilities: AbilityModel{
 			DB:       db,
 			InfoLog:  infoLog,
 			ErrorLog: errorLog,

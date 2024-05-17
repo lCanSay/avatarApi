@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"time"
+
+	"github.com/lCanSay/avatarApi/internal/validator"
 )
 
 type Affiliation struct {
@@ -120,4 +122,18 @@ func (m AffiliationModel) GetAll(name string, filters Filters) ([]*Affiliation, 
 	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
 
 	return affiliations, metadata, nil
+}
+
+func ValidateAffiliation(v *validator.Validator, affiliation *Affiliation) {
+	// Validate affiliation.Name
+	v.Check(affiliation.Name != "", "name", "must be provided")
+	v.Check(len(affiliation.Name) <= 100, "name", "must not be more than 100 characters long")
+
+	// Validate affiliation.Image
+	v.Check(affiliation.Image != "", "image", "must be provided")
+	v.Check(len(affiliation.Image) <= 200, "image", "must not be more than 200 characters long")
+
+	// Validate affiliation.Description
+	v.Check(affiliation.Description != "", "description", "must be provided")
+	v.Check(len(affiliation.Description) <= 500, "description", "must not be more than 500 characters long")
 }
