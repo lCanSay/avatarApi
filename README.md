@@ -1,9 +1,6 @@
 ﻿# Golang-Application-Project
 The project is based on Avatar: Aang cartoon-serial.
 
-Khan Kensey 22B030608 
-Kenzhegul Rashid 22B030148
-
 /users method POST
 
 /users/{userld:[0-9]+} method GET
@@ -16,58 +13,78 @@ Kenzhegul Rashid 22B030148
 
 ### Tables
 
-#### `characters`
+#### characters
 
-| Column       | Type    | Description                       |
-|--------------|---------|-----------------------------------|
-| id           | SERIAL  | Unique identifier for the character|
-| name         | VARCHAR | Full name of the character        |
-| age          | INTEGER | Age of the character              |
-| gender       | VARCHAR | Gender of the character           |
-| affiliation  | VARCHAR | Affiliation of the character      |
-| abilities    | VARCHAR | Special abilities of the character|
-| image        | VARCHAR | URL of the character's image      |
+The characters table contains the following columns:
 
-#### `places`
+| Column Name       | Data Type | Description                                  |
+|-------------------|-----------|----------------------------------------------|
+| id              | INT       | Primary key, unique identifier for each character. |
+| name            | VARCHAR   | The name of the character.                   |
+| description     | TEXT      | A detailed description of the character.     |
+| age             | INT       | The age of the character.                    |
+| affiliation_id  | INT       | Foreign key linking to the affiliation table. |
+| created_at      | TIMESTAMP | Timestamp when the character was created.    |
+| updated_at      | TIMESTAMP | Timestamp when the character was last updated. |
 
-| Column | Type    | Description                   |
-|--------|---------|-------------------------------|
-| id     | SERIAL  | Unique identifier for the place|
-| name   | VARCHAR | Name of the location           |
-| type   | VARCHAR | Type or affiliation of the place|
-| image  | VARCHAR | URL of the place's image       |
+#### affiliation
 
-#### `elements`
+The affiliation table contains the following columns:
 
-| Column      | Type    | Description                    |
-|-------------|---------|--------------------------------|
-| id          | SERIAL  | Unique identifier for the element|
-| name        | VARCHAR | Name of the bending element     |
-| description | TEXT    | Description of the bending element|
-| image       | VARCHAR | URL of the element's image      |
+| Column Name       | Data Type | Description                                  |
+|-------------------|-----------|----------------------------------------------|
+| id              | INT       | Primary key, unique identifier for each affiliation. |
+| name            | VARCHAR   | The name of the affiliation.                 |
+| description     | TEXT      | A detailed description of the affiliation.   |
+| created_at      | TIMESTAMP | Timestamp when the affiliation was created.  |
+| updated_at      | TIMESTAMP | Timestamp when the affiliation was last updated. |
+
+#### ability
+
+The ability table contains the following columns:
+
+| Column Name       | Data Type | Description                                  |
+|-------------------|-----------|----------------------------------------------|
+| id              | INT       | Primary key, unique identifier for each ability. |
+| name            | VARCHAR   | The name of the ability.                     |
+| description     | TEXT      | A detailed description of the ability.       |
+| created_at      | TIMESTAMP | Timestamp when the ability was created.      |
+| updated_at      | TIMESTAMP | Timestamp when the ability was last updated. |
 
 ### Relationships
 
-- The `characters` table may have a foreign key `place_id` that relates to the `places` table, indicating the location affiliation of a character.
+- The characters table may have a foreign key affiliation_id that relates to the affiliation table, indicating the location affiliation of a character.
 
-- If characters have specific bending abilities listed in the `abilities` column, you might consider creating a separate table for abilities and establishing a many-to-many relationship between `characters` and `abilities`.
+- If characters have specific bending abilities listed in the ability column, you might consider creating a separate table for abilities and establishing a many-to-many relationship between characters and ability.
 
-Feel free to adjust the table structure and relationships based on your project's specific needs.
 
 ## API Endpoints
 
 ### Base URL
 
-The base URL for all API endpoints is `https://your-api-domain.com`.
+The base URL for all API endpoints is https://your-api-domain.com.
 
 ### Characters
 
-#### `GET /api/characters`
+- Get All Characters: /characters (GET)
+- Get Character by ID: /characters/{id} (GET)
+- Create a New Character: /characters (POST)
+- Update a Character: /characters/{id} (PUT)
+- Delete a Character: /characters/{id} (DELETE)
+
+#### Permissions
+
+Certain endpoints require specific permissions to be accessed:
+
+- POST /characters: Requires characters:read permission.
+- PUT /characters/{id}: Requires characters:write permission.
+- DELETE /characters/{id}: Requires characters:write permission.
+
+#### GET /api/characters
 
 Get a list of all characters.
 
-**Response:**
-```json
+Response:
 [
   {
     "id": 1,
@@ -80,40 +97,15 @@ Get a list of all characters.
   },
   // ... other characters
 ]
-```
 
-### Places
 
-#### `GET /api/places`
 
-Get a list of all places.
+#### GET /api/characters
 
-**Response:**
-```json
-[
-  {
-    "name": "Air Temple",
-    "type": "Air Nomads",
-    "image": "https://example.com/air_temple.jpg"
-  },
-  // ... other places
-]
-```
 
-### Elements
+### Affiliation
 
-#### `GET /api/elements`
-
-Get a list of all elements.
-
-**Response:**
-```json
-[
-  {
-    "name": "Airbending",
-    "discription": "Manipulation of air currents",
-    "image": "https://example.com/airbending.jpg"
-  },
-  // ... other elements
-]
-```
+- Get All Affiliations: /affiliations (GET)
+- Get Affiliation by ID: /affiliations/{id} (GET)
+- Create a New Affiliation: /affiliations (POST)
+- Update an Affiliation: `/affiliations

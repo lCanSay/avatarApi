@@ -173,6 +173,41 @@ func (m CharacterModel) GetAll(name string, ageFrom, ageTo int, gender string, f
 	return characters, metadata, nil
 }
 
+func (m CharacterModel) GetByAbilityID(abilityID int) ([]*Character, error) {
+	query := `
+        SELECT c.id, c.name, c.age, c.gender, c.image, c.affiliation_id, a.name AS abilities
+        FROM character c
+        INNER JOIN character_ability ca ON c.id = ca.character_id
+        INNER JOIN ability a ON ca.ability_id = a.id
+        WHERE ca.ability_id = $1
+    `
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, abilityID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var characters []*Character
+	for rows.Next() {
+		var character Character
+		err := rows.Scan(&character.Id, &character.Name, &character.Age, &character.Gender, &character.Image, &character.Affiliation_id, &character.Abilities)
+		if err != nil {
+			return nil, err
+		}
+		characters = append(characters, &character)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return characters, nil
+}
+
 func ValidateCharacter(v *validator.Validator, character *Character) {
 	// Validate character.Name
 	v.Check(character.Name != "", "name", "must be provided")
@@ -196,4 +231,39 @@ func ValidateCharacter(v *validator.Validator, character *Character) {
 
 	// Validate character.AffiliationID
 	v.Check(character.Affiliation_id > 0, "affiliation_id", "must be a positive integer")
+}
+
+func (m CharacterModel) GetByAffiliationID(affiliationID int) ([]*Character, error) {
+	query := `
+        SELECT c.id, c.name, c.age, c.gender, c.image, c.affiliation_id, a.name AS abilities
+        FROM character c
+        LEFT JOIN character_ability ca ON c.id = ca.character_id
+        LEFT JOIN ability a ON ca.ability_id = a.id
+        WHERE c.affiliation_id = $1
+    `
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	rows, err := m.DB.QueryContext(ctx, query, affiliationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var characters []*Character
+	for rows.Next() {
+		var character Character
+		err := rows.Scan(&character.Id, &character.Name, &character.Age, &character.Gender, &character.Image, &character.Affiliation_id, &character.Abilities)
+		if err != nil {
+			return nil, err
+		}
+		characters = append(characters, &character)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return characters, nil
 }

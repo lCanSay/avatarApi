@@ -23,31 +23,26 @@ func (app *application) routes() http.Handler {
 
 	// localhost:8080/api/characters
 	r.HandleFunc("/characters", app.GetCharactersList).Methods("GET")
-	//r.HandleFunc("/characters", app.CreateCharacterHandler).Methods("POST")
 	r.HandleFunc("/characters", app.requirePermissions("characters:read", app.CreateCharacterHandler)).Methods("POST")
-
-	//r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:read", app.GetCharacterByIdHandler)).Methods("GET")
 	r.HandleFunc("/characters/{id:[0-9]+}", app.GetCharacterByIdHandler).Methods("GET")
-
-	//r.HandleFunc("/characters/{id:[0-9]+}", app.UpdateCharacterHandler).Methods("PUT")
 	r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:write", app.UpdateCharacterHandler)).Methods("PUT")
-
 	r.HandleFunc("/characters/{id:[0-9]+}", app.requirePermissions("characters:write", app.DeleteCharacterHandler)).Methods("DELETE")
-	//r.HandleFunc("/characters/{id:[0-9]+}", app.DeleteCharacterHandler).Methods("DELETE")
 
 	// Affiliation routes
 	r.HandleFunc("/affiliations", app.GetAffiliationsListHandler).Methods("GET")
 	r.HandleFunc("/affiliations/{id:[0-9]+}", app.GetAffiliationByIdHandler).Methods("GET")
-	r.HandleFunc("/affiliations", app.CreateAffiliationHandler).Methods("POST")
-	r.HandleFunc("/affiliations/{id:[0-9]+}", app.UpdateAffiliationHandler).Methods("PUT")
-	r.HandleFunc("/affiliations/{id:[0-9]+}", app.DeleteAffiliationHandler).Methods("DELETE")
+	r.HandleFunc("/affiliations", app.requirePermissions("affiliations:read", app.CreateAffiliationHandler)).Methods("POST")
+	r.HandleFunc("/affiliations/{id:[0-9]+}", app.requirePermissions("affiliations:write", app.UpdateAffiliationHandler)).Methods("PUT")
+	r.HandleFunc("/affiliations/{id:[0-9]+}", app.requirePermissions("affiliations:write", app.DeleteAffiliationHandler)).Methods("DELETE")
+	r.HandleFunc("/affiliations/{id:[0-9]+}/characters", app.GetCharactersByAffiliationHandler).Methods("GET")
 
 	// Ability routes
 	r.HandleFunc("/abilities", app.GetAbilitiesListHandler).Methods("GET")
 	r.HandleFunc("/abilities/{id:[0-9]+}", app.GetAbilityByIdHandler).Methods("GET")
-	r.HandleFunc("/abilities", app.CreateAbilityHandler).Methods("POST")
-	r.HandleFunc("/abilities/{id:[0-9]+}", app.UpdateAbilityHandler).Methods("PUT")
-	r.HandleFunc("/abilities/{id:[0-9]+}", app.DeleteAbilityHandler).Methods("DELETE")
+	r.HandleFunc("/abilities", app.requirePermissions("abilities:read", app.CreateAbilityHandler)).Methods("POST")
+	r.HandleFunc("/abilities/{id:[0-9]+}", app.requirePermissions("abilities:write", app.UpdateAbilityHandler)).Methods("PUT")
+	r.HandleFunc("/abilities/{id:[0-9]+}", app.requirePermissions("abilities:write", app.DeleteAbilityHandler)).Methods("DELETE")
+	r.HandleFunc("/abilities/{id:[0-9]+}/characters", app.GetCharactersByAbilityHandler).Methods("GET")
 
 	// User routes
 	users1 := r.PathPrefix("").Subrouter()

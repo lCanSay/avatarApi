@@ -278,6 +278,24 @@ func (app *application) CreateAffiliationHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	user := app.contextGetUser(r)
+
+	// Check if the permission already exists for the user
+	exists, err := app.models.Permissions.CheckForUser(user.ID, "affiliations:write")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if !exists {
+		// Add the permission only if it doesn't already exist
+		err = app.models.Permissions.AddForUser(user.ID, "affiliations:write")
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+	}
+
 	app.writeJSON(w, http.StatusCreated, envelope{"affiliation": affiliation}, nil)
 }
 
@@ -418,6 +436,22 @@ func (app *application) UpdateAffiliationHandler(w http.ResponseWriter, r *http.
 	app.writeJSON(w, http.StatusOK, envelope{"affiliation": affiliation}, nil)
 }
 
+func (app *application) GetCharactersByAffiliationHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	characters, err := app.models.Characters.GetByAffiliationID(id)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"characters": characters}, nil)
+}
+
 // ability handlers
 
 func (app *application) CreateAbilityHandler(w http.ResponseWriter, r *http.Request) {
@@ -453,6 +487,24 @@ func (app *application) CreateAbilityHandler(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
+	}
+
+	user := app.contextGetUser(r)
+
+	// Check if the permission already exists for the user
+	exists, err := app.models.Permissions.CheckForUser(user.ID, "abilities:write")
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	if !exists {
+		// Add the permission only if it doesn't already exist
+		err = app.models.Permissions.AddForUser(user.ID, "abilities:write")
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
 	}
 
 	app.writeJSON(w, http.StatusCreated, envelope{"ability": ability}, nil)
@@ -597,4 +649,20 @@ func (app *application) UpdateAbilityHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	app.writeJSON(w, http.StatusOK, envelope{"ability": ability}, nil)
+}
+
+func (app *application) GetCharactersByAbilityHandler(w http.ResponseWriter, r *http.Request) {
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	characters, err := app.models.Characters.GetByAbilityID(id)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	app.writeJSON(w, http.StatusOK, envelope{"characters": characters}, nil)
 }
